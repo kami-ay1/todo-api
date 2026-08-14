@@ -1,0 +1,34 @@
+// Prisma schema 文件(Prisma 7 写法)
+// 这里只定义数据模型,数据库连接串移到 prisma.config.ts 里了
+
+// Prisma Client 生成配置
+generator client {
+  provider = "prisma-client"        // Prisma 7:从 prisma-client-js 改为 prisma-client
+  output   = "../src/generated/prisma"  // Prisma 7:必须指定 output,不再默认生成到 node_modules
+}
+
+// 数据源:只声明用哪种数据库,连接串不写在这里了
+datasource db {
+  provider = "postgresql"
+}
+
+// Todo 数据模型 —— 对应数据库里的一张表
+// 对照认知:这个 model 在 Java 里是 @Entity 实体类,
+//          在 Go GORM 里是带 tag 的 struct
+model Todo {
+  id        Int      @id @default(autoincrement())  // 主键,自增
+  title     String                                // 标题,必填
+  done      Boolean  @default(false)               // 是否完成,默认 false
+  createdAt DateTime @default(now())               // 创建时间,默认当前
+  updatedAt DateTime @updatedAt                    // 更新时间,自动维护
+  userId  Int     @map("userId")           // ★ 真正存进数据库的外键列(整数)
+  user    User    @relation(fields: [userId], references: [id])  // ★ 关系声明
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  username String  @unique               // 用户名唯一(不能重名)
+  password String                          // 存哈希后的密码
+  todos    Todo[]                          // ★ 反向关系:这个用户的所有 todo(数组)
+}
+
