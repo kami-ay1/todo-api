@@ -5,6 +5,13 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from './generated/prisma/client.js'
 import bcrypt from 'bcryptjs'
 import jwt from "jsonwebtoken"
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: number
+    }
+  }
+}
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
@@ -19,9 +26,42 @@ interface Todo {
   done: boolean
 }
 
-app.get('/todos', async (req, res) => {
+// 鉴权中间件:验证 token
+const auth = (req, res, next) => {
+  // ① 从 header 拿 token
+  const token = req.headers.authorization?.split(' ')[1]
+  // req.headers.authorization 的值长这样:"Bearer eyJhbGciOi..."
+  // 思考:token 是空格后面那一段,用哪个字符串方法取出来?
+
+  // ② 如果没带 token(header 不存在或格式不对)→ 返回 401,别调 next
+  if(!token){
+    res.status(401).json({message:"未提供token"})
+    return 
+  }
+  // ③ 验签
+  // 提示:jwt.verify(token, 密钥) 的行为是——
+  //   通过:返回你登录时签进去的对象 { userId, iat, exp }
+  //   失败:不返回 null,而是抛异常
+  // 思考:这种行为该用什么语法结构包住它?
+  try{
+    const payload = jwt.verify(token,process.env.JWT_SECRET!)
+    req.userId=(payload as any).userId
+    next()
+  }catch{
+    res.status(401).json({message:'token无效或已过期'})
+  }
+  // ④ 验证通过:把 payload 里的 userId 挂到 req 上,调 next()
+
+}
+
+
+
+app.get('/todos',auth, async (req, res) => {
   try {
-    const todos=await prisma.todo.findMany()
+    const todos=await prisma.todo.findMany({where:{
+      userId:req.userId
+    }
+  })
     res.json(todos)
   } catch (err) {
     res.status(500).json({ message: '服务器错误' })
@@ -29,7 +69,7 @@ app.get('/todos', async (req, res) => {
 })
 
 
-app.get('/todos/:id',async (req, res) => {
+app.get('/todos/:id',auth,async (req, res) => {
   try{
     const id = Number(req.params.id)
     const todo = await prisma.todo.findUnique({where:{id} })
@@ -43,16 +83,21 @@ app.get('/todos/:id',async (req, res) => {
   }
 })
 
-app.post('/todos', async(req, res) => {
+app.post('/todos', auth,async(req, res) => {
   try{
-    const todo = await prisma.todo.create({data:{title:req.body.title}})
+    const todo = await prisma.todo.create({
+      data:{
+        title:req.body.title,
+        userId:req.userId
+      }
+    })
     res.status(201).json(todo)
   }catch(error){
     res.status(500).json({message:'服务器错误'})
   }
 })
 
-app.patch('/todos/:id', async(req, res) => {
+app.patch('/todos/:id', auth,async(req, res) => {
   try{
     const id=Number(req.params.id)
     const todo = await prisma.todo.update({
@@ -69,7 +114,7 @@ app.patch('/todos/:id', async(req, res) => {
   }
 })
 
-app.delete('/todos/:id',async (req, res) => {
+app.delete('/todos/:id',auth,async (req, res) => {
   try{
     const id = Number(req.params.id)
     const todo = await prisma.todo.delete({where:{id}})
@@ -117,7 +162,7 @@ app.post("/auth/login",async(req,res)=>{
       res.status(401).json({message:'用户名或密码错误'})
       return
     }
-    const token =jwt.sign({userId:user.id},process.env.JWT_SECRET!,{expiresIn:'7d})
+    const token =jwt.sign({userId:user.id},process.env.JWT_SECRET!,{expiresIn:'7d'})
     res.json({token})
   }catch(err:any){
     res.status(500).json({message:'服务器错误'})
