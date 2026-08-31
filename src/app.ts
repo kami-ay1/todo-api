@@ -1,4 +1,5 @@
 import express from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import 'dotenv/config'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
@@ -27,7 +28,7 @@ interface Todo {
 }
 
 // 鉴权中间件:验证 token
-const auth = (req, res, next) => {
+const auth = (req: Request, res: Response, next: NextFunction) => {
   // ① 从 header 拿 token
   const token = req.headers.authorization?.split(' ')[1]
   // req.headers.authorization 的值长这样:"Bearer eyJhbGciOi..."
@@ -59,7 +60,7 @@ const auth = (req, res, next) => {
 app.get('/todos',auth, async (req, res) => {
   try {
     const todos=await prisma.todo.findMany({where:{
-      userId:req.userId
+      userId:req.userId!
     }
   })
     res.json(todos)
@@ -72,7 +73,12 @@ app.get('/todos',auth, async (req, res) => {
 app.get('/todos/:id',auth,async (req, res) => {
   try{
     const id = Number(req.params.id)
-    const todo = await prisma.todo.findUnique({where:{id} })
+    const todo = await prisma.todo.findFirst({
+      where:{
+        id:id,
+        userId:req.userId!
+      } 
+    })
     if (!todo){
       res.status(404).json({ message: 'Todo 不存在' })
       return
@@ -88,7 +94,7 @@ app.post('/todos', auth,async(req, res) => {
     const todo = await prisma.todo.create({
       data:{
         title:req.body.title,
-        userId:req.userId
+        userId:req.userId!
       }
     })
     res.status(201).json(todo)
@@ -100,11 +106,18 @@ app.post('/todos', auth,async(req, res) => {
 app.patch('/todos/:id', auth,async(req, res) => {
   try{
     const id=Number(req.params.id)
-    const todo = await prisma.todo.update({
+    const todo = await prisma.todo.findFirst({
+      where:{id,userId:req.userId!}
+    })
+    if(!todo){
+      res.status(404).json({message:'Todo不存在'})
+      return
+    }
+    const updated = await prisma.todo.update({
       where:{id},
       data:{...req.body}
     })
-    res.json(todo)
+    res.json(updated)
   }catch(err:any){
     if(err.code=='P2025'){
       res.status(404).json({message:'Todo不存在'})
@@ -117,14 +130,19 @@ app.patch('/todos/:id', auth,async(req, res) => {
 app.delete('/todos/:id',auth,async (req, res) => {
   try{
     const id = Number(req.params.id)
-    const todo = await prisma.todo.delete({where:{id}})
-    res.json(todo)
-  }catch(err:any){
-    if(err.code=="P2025"){
-      res.status(404).json({message:"todo不存在"})
-    }else{
-      res.status(500).json({message:"服务器错误"})
+    const todo = await prisma.todo.findFirst({
+      where:{id,userId:req.userId!}
+    })
+    if(!todo){
+      res.status(404).json({message:'todo不存在'})
+      return
     }
+    const deleted = await prisma.todo.delete({
+      where:{id},
+    })
+    res.json(deleted)
+  }catch(err:any){
+      res.status(500).json({message:"服务器错误"})
   }
   
 
@@ -169,6 +187,18 @@ app.post("/auth/login",async(req,res)=>{
   }
 })
 
+// 错误处理中间件:四个参数是身份标识,Express 靠参数个数认出它
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  // 填空①:console.log 把 err 打印出来(客户端看不到真相,控制台必须看到)
+  console.log(err)
+  // 填空②:err 是 Prisma 错误时 err.code === 'P2025' → 404 'Todo不存在'
+  if((err as any).code=='P2025'){
+    res.status(404).json({message:'todo不存在'})
+  }else{
+    res.status(500).json({message:'服务端错误'})
+  }
+  // 填空③:其余情况 → 500 '服务器错误'
+})
 
 app.listen(3000, () => {
   console.log('Server running at http://localhost:3000')

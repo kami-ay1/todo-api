@@ -17,8 +17,7 @@
 
 1. ✅ 用 Express 写 CRUD，不接数据库（**已完成**）
 2. ✅ 接 Prisma 和 PostgreSQL（**已完成**）
-3. 加登录注册（JWT）
-3. 加登录注册（JWT）
+3. ✅ 加登录注册（JWT）（**已完成**）
 4. 加统一错误处理
 5. 加参数校验（zod）
 6. 加分页、筛选、排序
@@ -52,7 +51,7 @@ NestJS 阶段的具体路线：
 
 ---
 
-## 第一段当前进度：Express + Prisma + PostgreSQL 版 CRUD
+## 第一段第 2 步记录：Express + Prisma + PostgreSQL 版 CRUD（历史存档）
 
 ### 已完成
 
@@ -111,7 +110,81 @@ NestJS 阶段的具体路线：
 
 ### 下一步
 
-进入第 1 阶段第 3 步：加登录注册（JWT）。先做用户注册、登录，密码加密，再用 JWT 维持登录态，最后用中间件保护 todo 接口（必须登录才能访问）。
+（第 3 步已完成，最新进度见下方第 3 步记录。）
+
+---
+
+## 第一段当前进度：第 3 步 JWT 登录注册（已完成）
+
+### 第 3 步新增的环境与文件
+
+- schema 新增 `User` 模型（`username @unique`、`password` 存哈希），`Todo` 加 `userId` 外键关联 User，`npx prisma db push` 已同步
+- 安装 `bcryptjs`、`jsonwebtoken`（及对应 `@types`），`.env` 新增 `JWT_SECRET`
+- `src/app.ts` 新增：`POST /auth/register`、`POST /auth/login`、`auth` 鉴权中间件；5 条 todo 路由全部挂上 `auth` 并建立数据归属
+
+### 第 3 步核心收获（全部已用 Apifox 实测验证）
+
+**JWT 完整链路**：
+
+- 登录成功 → `jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })` 签发 token
+- 客户端后续请求带 `Authorization: Bearer <token>`（Bearer 后有一个空格）
+- `auth` 中间件：`split(' ')[1]` 取 token → `jwt.verify` 验签（**失败是抛异常不是返回 null，必须 try/catch**）→ 把 `payload.userId` 挂到 `req.userId` → `next()` 放行；任何一步失败直接 401 且不调 next
+- 两种 401 文案刻意区分：「未提供token」（header 缺失/格式错）vs「token无效或已过期」（验签失败），排查时一眼定位
+
+**密码存储**：注册 `bcrypt.hash(password, 10)` 存哈希；登录 `bcrypt.compare` 比对。数据库永远不存明文。
+
+**防越权（本步灵魂，已做交叉测试）**：
+
+- `POST /todos` 的 create data 带上 `userId: req.userId!`，新数据归属当前用户
+- `GET /todos` 用 `where: { userId }` 只返回自己的
+- 详情/PATCH/DELETE 先 `findFirst({ where: { id, userId } })` 验归属，查不到统一 404 —— 用户 B 对 A 的数据「看不见也改不动」，404 而不是 403（对越权者来说别人的数据等于不存在）
+
+**Prisma 坑**：`findUnique` 的 `where` 只接受唯一字段（如 id），写不了 `{ id, userId }` 组合；`findFirst` 可以。
+
+**中间件两种挂法**（都合法，选一保持一致）：
+
+| 挂法 | 写法 | 特点 |
+|---|---|---|
+| 路由级（当前用法） | `app.get('/todos', auth, handler)` | 路由处一眼可见受保护；但以后新路由忘写 `auth` 就是裸奔的安全洞 |
+| 路径级 | `app.use('/todos', auth)`（写在路由之前） | 一行保护该前缀下所有路由，含未来新增的 |
+
+**踩过的坑：定义中间件 ≠ 启用中间件**。auth 函数写好了但没挂到路由上，等于没写——当时表现为「空 token 访问返回 200」，排查方式：先发不带 token 的请求看是否 401，200 即中间件未生效。
+
+**TS 扩展 Request 类型**（类型合并样板，放在 imports 后）：
+
+```ts
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: number
+    }
+  }
+}
+```
+
+> 对照认知：NestJS 里这步是 AuthGuard + 装饰器取当前用户；Java Spring 是 Filter/Interceptor + SecurityContext；Go 是中间件把 userId 塞进 request context。跨语言概念一致：**进入业务逻辑前统一验明身份**。
+
+### 当前接口清单
+
+```txt
+POST   /auth/register  注册（body: username、password），返回 201
+POST   /auth/login     登录（body: username、password），返回 { token }
+GET    /todos          查询自己的 todo 列表（需登录）
+GET    /todos/:id      查询单个 todo（需登录，仅自己的）
+POST   /todos          新增 todo（需登录，归属当前用户）
+PATCH  /todos/:id      更新 todo（需登录，仅自己的）
+DELETE /todos/:id      删除 todo（需登录，仅自己的）
+```
+
+### 留下的待办（后面步骤会回来解决）
+
+- ⚠️ 每个接口都写了重复的 `try/catch` → 第 4 步用统一错误处理中间件消除
+- ⚠️ `POST /todos` 不传 `title` 仍返回 500；`PATCH` 的 `{...req.body}` 仍能传任意字段 → 第 5 步用 zod 校验解决
+- 小尾巴（不急）：`app.ts` 里旧的 `interface Todo` 已无引用可删；中间件里 `(payload as any)` 可用类型守卫优化
+
+### 下一步
+
+进入第 1 阶段第 4 步：加统一错误处理。核心是 Express 的**错误处理中间件**——一个四参数函数 `(err, req, res, next)`，挂在所有路由之后，专门接住路由里抛出的错误。目标：路由里不再写 try/catch，出错直接 throw，让错误沿着中间件链流到统一出口。
 
 ---
 
@@ -169,7 +242,7 @@ app.listen(3000, () => {
 
 ---
 
-## 当前接口清单
+## 接口清单（第 2 步时的历史版本）
 
 ```txt
 GET    /todos       查询 todo 列表
