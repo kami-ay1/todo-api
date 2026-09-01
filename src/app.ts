@@ -6,6 +6,13 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from './generated/prisma/client.js'
 import bcrypt from 'bcryptjs'
 import jwt from "jsonwebtoken"
+import { z,ZodError } from 'zod'
+
+// schema 声明式读法:"对象里有个 title,它是字符串,至少 1 个字符"
+const todoSchema = z.object({
+  title: z.string().min(1),
+})
+
 declare global {
   namespace Express {
     interface Request {
@@ -39,11 +46,6 @@ const auth = (req: Request, res: Response, next: NextFunction) => {
     res.status(401).json({message:"未提供token"})
     return 
   }
-  // ③ 验签
-  // 提示:jwt.verify(token, 密钥) 的行为是——
-  //   通过:返回你登录时签进去的对象 { userId, iat, exp }
-  //   失败:不返回 null,而是抛异常
-  // 思考:这种行为该用什么语法结构包住它?
   try{
     const payload = jwt.verify(token,process.env.JWT_SECRET!)
     req.userId=(payload as any).userId
@@ -58,20 +60,15 @@ const auth = (req: Request, res: Response, next: NextFunction) => {
 
 
 app.get('/todos',auth, async (req, res) => {
-  try {
     const todos=await prisma.todo.findMany({where:{
       userId:req.userId!
     }
   })
     res.json(todos)
-  } catch (err) {
-    res.status(500).json({ message: '服务器错误' })
-  }
 })
 
 
 app.get('/todos/:id',auth,async (req, res) => {
-  try{
     const id = Number(req.params.id)
     const todo = await prisma.todo.findFirst({
       where:{
@@ -84,27 +81,20 @@ app.get('/todos/:id',auth,async (req, res) => {
       return
     }
     res.json(todo)
-  } catch(error){
-    res.status(500).json({ message: '服务器错误' })
-  }
 })
 
 app.post('/todos', auth,async(req, res) => {
-  try{
+  const data= todoSchema.parse(req.body) 
     const todo = await prisma.todo.create({
       data:{
-        title:req.body.title,
+        title:data.title,
         userId:req.userId!
       }
     })
     res.status(201).json(todo)
-  }catch(error){
-    res.status(500).json({message:'服务器错误'})
-  }
 })
 
 app.patch('/todos/:id', auth,async(req, res) => {
-  try{
     const id=Number(req.params.id)
     const todo = await prisma.todo.findFirst({
       where:{id,userId:req.userId!}
@@ -118,17 +108,9 @@ app.patch('/todos/:id', auth,async(req, res) => {
       data:{...req.body}
     })
     res.json(updated)
-  }catch(err:any){
-    if(err.code=='P2025'){
-      res.status(404).json({message:'Todo不存在'})
-    }else{
-      res.status(500).json({message:"服务器错误"})
-    }
-  }
 })
 
 app.delete('/todos/:id',auth,async (req, res) => {
-  try{
     const id = Number(req.params.id)
     const todo = await prisma.todo.findFirst({
       where:{id,userId:req.userId!}
@@ -141,15 +123,9 @@ app.delete('/todos/:id',auth,async (req, res) => {
       where:{id},
     })
     res.json(deleted)
-  }catch(err:any){
-      res.status(500).json({message:"服务器错误"})
-  }
-  
-
 })
 
 app.post("/auth/register",async(req,res)=>{
-  try{
     const {username,password} = req.body
     const existUser = await prisma.user.findUnique({where:{username}})
     if (existUser){
@@ -162,13 +138,9 @@ app.post("/auth/register",async(req,res)=>{
     })
 
     res.status(201).json({id:user.id,username:user.username})
-  }catch(err:any){
-    res.status(500).json({message:'服务器错误'})
-  }
 })
 
 app.post("/auth/login",async(req,res)=>{
-  try{
     const {username,password}=req.body
     const user = await prisma.user.findUnique({where:{username}})
     if (!user){
@@ -182,22 +154,25 @@ app.post("/auth/login",async(req,res)=>{
     }
     const token =jwt.sign({userId:user.id},process.env.JWT_SECRET!,{expiresIn:'7d'})
     res.json({token})
-  }catch(err:any){
-    res.status(500).json({message:'服务器错误'})
-  }
 })
 
 // 错误处理中间件:四个参数是身份标识,Express 靠参数个数认出它
+// 决策链:ZodError(客户端传参不合格)→400 / P2025(记录不存在)→404 / 其他→500
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  // 填空①:console.log 把 err 打印出来(客户端看不到真相,控制台必须看到)
+  // 全量日志留在服务端,客户端只拿到模糊文案
   console.log(err)
-  // 填空②:err 是 Prisma 错误时 err.code === 'P2025' → 404 'Todo不存在'
-  if((err as any).code=='P2025'){
+  // ZodError:zod 校验失败抛的错,锅在客户端 → 400
+  if (err instanceof ZodError) {
+    // 每条 issue 拼成 "字段名: 原因",多条用分号连接
+    const msg = err.issues
+      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+      .join('; ')
+    res.status(400).json({ message: msg })
+  } else if((err as any).code=='P2025'){
     res.status(404).json({message:'todo不存在'})
   }else{
     res.status(500).json({message:'服务端错误'})
   }
-  // 填空③:其余情况 → 500 '服务器错误'
 })
 
 app.listen(3000, () => {
