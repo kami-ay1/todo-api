@@ -13,6 +13,12 @@ const todoSchema = z.object({
   title: z.string().min(1),
 })
 
+const todoPatchSchema = z.object({
+  title: z.string().min(1).optional(),
+  done: z.boolean().optional(),
+})
+
+
 declare global {
   namespace Express {
     interface Request {
@@ -54,9 +60,17 @@ const auth = (req: Request, res: Response, next: NextFunction) => {
     res.status(401).json({message:'token无效或已过期'})
   }
   // ④ 验证通过:把 payload 里的 userId 挂到 req 上,调 next()
-
 }
-
+// 校验中间件工厂:接收 schema,返回一个标准三参数中间件
+const validate = (schema: z.ZodType) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // 填空①:用 schema.parse 处理 req.body,把返回值【写回 req.body】
+    req.body = schema.parse(req.body)
+    // 填空②:调 next() 放行
+    next()
+    // 思考:parse 抛异常的话,②还会执行到吗?错误会流去哪?
+  }
+}
 
 
 app.get('/todos',auth, async (req, res) => {
@@ -83,18 +97,17 @@ app.get('/todos/:id',auth,async (req, res) => {
     res.json(todo)
 })
 
-app.post('/todos', auth,async(req, res) => {
-  const data= todoSchema.parse(req.body) 
+app.post('/todos', auth,validate(todoSchema),async(req, res) => {
     const todo = await prisma.todo.create({
       data:{
-        title:data.title,
+        title:req.body.title,
         userId:req.userId!
       }
     })
     res.status(201).json(todo)
 })
 
-app.patch('/todos/:id', auth,async(req, res) => {
+app.patch('/todos/:id', auth,validate(todoPatchSchema),async(req, res) => {
     const id=Number(req.params.id)
     const todo = await prisma.todo.findFirst({
       where:{id,userId:req.userId!}
@@ -105,7 +118,7 @@ app.patch('/todos/:id', auth,async(req, res) => {
     }
     const updated = await prisma.todo.update({
       where:{id},
-      data:{...req.body}
+      data:req.body,
     })
     res.json(updated)
 })

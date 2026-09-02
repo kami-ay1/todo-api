@@ -19,7 +19,7 @@
 2. ✅ 接 Prisma 和 PostgreSQL（**已完成**）
 3. ✅ 加登录注册（JWT）（**已完成**）
 4. ✅ 加统一错误处理（**已完成**）
-5. 加参数校验（zod）
+5. ✅ 加参数校验（zod）（**已完成**）
 6. 加分页、筛选、排序
 7. 加文件上传（multer）
 8. 给前端项目接真实接口
@@ -188,7 +188,7 @@ DELETE /todos/:id      删除 todo（需登录，仅自己的）
 
 ---
 
-## 第一段当前进度：第 4 步 统一错误处理（已完成）
+## 第一段第 4 步记录：统一错误处理（历史存档）
 
 ### 第 4 步改了什么
 
@@ -231,7 +231,49 @@ DELETE /todos/:id      删除 todo（需登录，仅自己的）
 
 ### 下一步
 
-进入第 1 阶段第 5 步：参数校验（zod）。目标：`POST /todos` 不传 title 返回 400 + 明确错误信息，而不是等 Prisma 抛 500；`PATCH` 只允许传 `title`/`done` 两个合法字段。核心心智模型：**在数据进入业务逻辑之前设卡检查**——校验是另一类中间件。
+（第 5 步已完成，最新进度见下方第 5 步记录。）
+
+---
+
+## 第一段当前进度：第 5 步 参数校验 zod（已完成）
+
+### 第 5 步新增的环境与文件
+
+- 安装 `zod`；`app.ts` 顶部 `import { z, ZodError } from 'zod'`
+- 新增两个 schema：`todoSchema`（POST 用：title 必填非空）、`todoPatchSchema`（PATCH 用：title/done 都 `.optional()`）
+- 新增 `validate(schema)` 中间件工厂，POST/PATCH 路由改为挂卡形式 `auth, validate(对应schema), handler`
+- 错误中间件新增 ZodError 席位：`instanceof ZodError` → 400，message 由 `err.issues` 拼接（`path.join('.') + message`）
+
+### 第 5 步核心收获（7 项回归矩阵全部实测通过）
+
+**为什么必须运行时校验**：TS 类型只在编译期存在，`req.body` 是从网络来的任意 JSON（类型 any），TS 帮不上忙。真实漏洞：不校验时缺 title 是 500（应为 400）；PATCH `{...req.body}` 全收，夹带 `{"id":99999}` 能改主键、夹带 `{"userId":1}` 能偷别人数据（越权）。
+
+**zod 心智模型**：声明式 schema → `parse()` 两条路——合格返回**干净数据**（应使用返回值/写回 req.body），不合格**抛 ZodError**（不返回 null）。`issues` 数组是每条失败的 `{path, message, code}`。object 默认**白名单制**：schema 没声明的字段静默剥掉（治夹带漏洞的药）。一份 schema 有多种失败形态（缺字段 invalid_type / 空串 too_small…），都汇入同一个 400 席位。
+
+**架构闭环**：错误中间件的决策链成为 `ZodError→400 / P2025→404 / 其他→500`——每种已知错误家族一个翻译席位，加校验规则不用加分支。
+
+**validate 工厂（本步的工程化跃迁）**：返回函数的函数，闭包捕获 schema。内部 `req.body = schema.parse(req.body); next()`——写回 req.body 使 handler 零改动。抛错不接（Express 送错误专线）。`validate(todoSchema)` 带括号 = 现在调用、注册的是返回的中间件。
+
+**中间件队列的统一视角**：`app.动词('/路径', 排队1, 排队2, ..., handler)`，路径后全是同签名 `(req,res,next)` 函数按序执行；每个函数只有三条出路：`next()` 放行 / 自己 `res` 响应终结 / `throw`→错误专线。**请求必须有且只有一个响应者**（裸 return = 请求挂死）。执行顺序有含义：auth（确认身份）→ validate（检查货）→ handler（闭眼用干净数据）。
+
+**查血统 vs 查属性**：库导出了错误类（如 ZodError）用 `instanceof`（沿原型链，精准且有类型提示）；只带错误码属性的错误（如 Prisma P2025）用鸭子判定查属性。跟生态惯例走。
+
+### 踩过的坑
+
+- **schema 插错路由**：PATCH 误挂 `todoSchema`（title 必填版）→ 不报错，但 `{"done":true}` 的 done 被当陌生字段剥掉 → **部分修改静默丢失**。schema 与路由必须一一配对，这类错不报错只改变行为，靠回归矩阵抓。
+- **旧进程骗人（二次发生）**：改完代码后，自己终端里的旧 dev 服务还占着 3000，测试全打到旧代码上（一度以为白名单没生效）。标准流程：**改代码 → 杀干净旧进程 → 确认端口空闲 → 再测**。
+
+> 对照认知：`validate(schema)` 工厂就是 NestJS `ValidationPipe` 的雏形，Java 里是 `@Valid` + Bean Validation，Go 是 struct tag + validator。中间件队列 = Java Filter Chain / NestJS Interceptor 链。
+
+### 留下的待办
+
+- 可选练习（未做）：`/auth/register`、`/auth/login` 也挂 `validate`（username/password 规则自定），纯自练，套路与 POST 完全相同
+- 加分题（可选）：错误中间件改 `res.status((err as any).status ?? 500)`，让非法 JSON 的 400 正确归位
+- 小尾巴：`app.ts` 顶部旧 `interface Todo` 已无引用可删
+
+### 下一步
+
+进入第 1 阶段第 6 步：分页、筛选、排序。目标：`GET /todos` 支持 `?page=1&pageSize=10`（Prisma skip/take）、`?done=true` 筛选（where）、`?sortBy=createdAt` 排序（orderBy），返回值带上总数与总页数。核心新概念：**query 参数的解析与默认值**——又是 zod 的用武之地（`z.coerce.number()` 处理「query 里一切都是字符串」）。
 
 ---
 
