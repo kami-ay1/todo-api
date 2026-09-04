@@ -18,6 +18,12 @@ const todoPatchSchema = z.object({
   done: z.boolean().optional(),
 })
 
+// query 参数的 schema:全部字符串,所以用 coerce 先转型
+const todoQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  done: z.stringbool().optional(),   // 【修复版】stringbool 专治 "true"/"false" 字符串
+})
 
 declare global {
   namespace Express {
@@ -74,10 +80,13 @@ const validate = (schema: z.ZodType) => {
 
 
 app.get('/todos',auth, async (req, res) => {
-    const todos=await prisma.todo.findMany({where:{
-      userId:req.userId!
-    }
-  })
+    const query = todoQuerySchema.parse(req.query)   // ← 新增这行
+    const skip = (query.page - 1) * query.pageSize
+    const todos = await prisma.todo.findMany({
+      where: { userId: req.userId!, done: query.done },
+      skip: skip,
+      take: query.pageSize,
+    })
     res.json(todos)
 })
 
