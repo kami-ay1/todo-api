@@ -7,7 +7,7 @@ import { PrismaClient } from './generated/prisma/client.js'
 import bcrypt from 'bcryptjs'
 import jwt from "jsonwebtoken"
 import { z,ZodError } from 'zod'
-
+import multer from 'multer'
 // schema 声明式读法:"对象里有个 title,它是字符串,至少 1 个字符"
 const todoSchema = z.object({
   title: z.string().min(1),
@@ -39,7 +39,9 @@ const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
 const app = express()
-
+const upload = multer({
+  dest:'uploads/',
+})
 app.use(express.json())
 
 interface Todo {
@@ -69,6 +71,7 @@ const auth = (req: Request, res: Response, next: NextFunction) => {
   }
   // ④ 验证通过:把 payload 里的 userId 挂到 req 上,调 next()
 }
+
 // 校验中间件工厂:接收 schema,返回一个标准三参数中间件
 const validate = (schema: z.ZodType) => {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -189,6 +192,20 @@ app.post("/auth/login",async(req,res)=>{
     }
     const token =jwt.sign({userId:user.id},process.env.JWT_SECRET!,{expiresIn:'7d'})
     res.json({token})
+})
+
+app.post('/uploads', auth, upload.single('file'), (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ message: '请选择文件' })
+    return
+  }
+
+  res.status(201).json({
+    originalName: req.file.originalname,
+    filename: req.file.filename,
+    mimetype: req.file.mimetype,
+    size: req.file.size,
+  })
 })
 
 // 错误处理中间件:四个参数是身份标识,Express 靠参数个数认出它
