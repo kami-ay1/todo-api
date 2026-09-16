@@ -22,7 +22,9 @@ const todoPatchSchema = z.object({
 const todoQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
-  done: z.stringbool().optional(),   // 【修复版】stringbool 专治 "true"/"false" 字符串
+  done: z.stringbool().optional(),   // stringbool 专治 "true"/"false" 字符串
+  sortBy: z.enum(['createdAt', 'done']).default('createdAt'),  // 白名单:传别的值直接400
+  order: z.enum(['asc', 'desc']).default('desc'),
 })
 
 declare global {
@@ -80,14 +82,25 @@ const validate = (schema: z.ZodType) => {
 
 
 app.get('/todos',auth, async (req, res) => {
-    const query = todoQuerySchema.parse(req.query)   // ← 新增这行
+    const query = todoQuerySchema.parse(req.query)
     const skip = (query.page - 1) * query.pageSize
-    const todos = await prisma.todo.findMany({
-      where: { userId: req.userId!, done: query.done },
-      skip: skip,
-      take: query.pageSize,
+    const where = { userId: req.userId!, done: query.done }   // count 和 findMany 必须共用同一个条件
+    const [total, data] = await Promise.all([                 // 两个互不依赖的查询,并行跑
+      prisma.todo.count({ where }),                           // 符合条件的总条数(不受分页影响)
+      prisma.todo.findMany({
+        where,
+        orderBy: { [query.sortBy]: query.order },
+        skip: skip,
+        take: query.pageSize,
+      }),
+    ])
+    res.json({
+      data,                                        // 当前页的列表
+      total,                                       // 筛选后的总数
+      page: query.page,
+      pageSize: query.pageSize,
+      totalPages: Math.ceil(total / query.pageSize),  // 向上取整:5条/每页2 = 3页
     })
-    res.json(todos)
 })
 
 
