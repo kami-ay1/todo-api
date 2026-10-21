@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs'
 import jwt from "jsonwebtoken"
 import { z,ZodError } from 'zod'
 import multer from 'multer'
+import cors from 'cors'
 // schema 声明式读法:"对象里有个 title,它是字符串,至少 1 个字符"
 const todoSchema = z.object({
   title: z.string().min(1),
@@ -39,10 +40,31 @@ const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
 const app = express()
+const allowedImageTypes = new Set([
+  'image/jpeg',
+  'image/png',
+])
+class UnsupportedFileTypeError extends Error {}
 const upload = multer({
   dest:'uploads/',
+  limits:{
+    fileSize:5*1024*1024
+  },
+  fileFilter:(_req,file,callback)=>{
+    if (!allowedImageTypes.has(file.mimetype)){
+      callback(
+        new UnsupportedFileTypeError('只允许上传 JPEG 或 PNG 图片'),
+      )
+      return
+    }
+    callback(null,true)
+  },
 })
+app.use(cors({
+  origin: 'http://localhost:5173',
+}))
 app.use(express.json())
+app.use('/uploads', express.static('uploads'))
 
 interface Todo {
   id: number
@@ -205,6 +227,7 @@ app.post('/uploads', auth, upload.single('file'), (req, res) => {
     filename: req.file.filename,
     mimetype: req.file.mimetype,
     size: req.file.size,
+    url: `/uploads/${req.file.filename}`,
   })
 })
 
@@ -213,8 +236,15 @@ app.post('/uploads', auth, upload.single('file'), (req, res) => {
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   // 全量日志留在服务端,客户端只拿到模糊文案
   console.log(err)
-  // ZodError:zod 校验失败抛的错,锅在客户端 → 400
-  if (err instanceof ZodError) {
+  if(err instanceof UnsupportedFileTypeError){
+    res.status(400).json({message:err.message})
+  }else if (err instanceof multer.MulterError){
+    if(err.code === 'LIMIT_FILE_SIZE'){
+      res.status(400).json({message:'文件不能超过5MB'})
+    }else{
+      res.status(400).json({message:'文件上传失败'})
+    }
+  }else if (err instanceof ZodError) {
     // 每条 issue 拼成 "字段名: 原因",多条用分号连接
     const msg = err.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)

@@ -2,6 +2,10 @@
 
 这份文档用于记录当前 `todo-api` 项目的学习上下文。以后继续学习时，可以先把这个文件给 AI 看，避免重复说明前面的进度。
 
+最近更新：2026-10-21。Express 第 7 步文件上传及文件访问已经验证通过；第 8 步前端项目已创建，类型检查、真实接口和跨域预检已通过，真实浏览器交互验证尚未完成。
+
+进度记录规则：每项功能验证完成后，立即更新完成状态、实际接口、验证结果和下一项任务；尚未执行或验证的内容保留为待办。
+
 ## 设计思路：为什么分两段
 
 本计划刻意分成两段，目的是同时获得两种能力：
@@ -20,9 +24,9 @@
 3. ✅ 加登录注册（JWT）（**已完成**）
 4. ✅ 加统一错误处理（**已完成**）
 5. ✅ 加参数校验（zod）（**已完成**）
-6. 加分页、筛选、排序
-7. 加文件上传（multer）
-8. 给前端项目接真实接口
+6. ✅ 加分页、筛选、排序（**已完成**）
+7. ✅ 加文件上传（multer）及文件访问（**已完成，2026-10-21 验证通过**）
+8. 给前端项目接真实接口（**当前步骤，前端已创建，待完成浏览器交互验证**）
 9. 补测试和部署
 
 ### 第二段：NestJS（学习工程架构）
@@ -235,7 +239,7 @@ DELETE /todos/:id      删除 todo（需登录，仅自己的）
 
 ---
 
-## 第一段当前进度：第 5 步 参数校验 zod（已完成）
+## 第一段第 5 步记录：参数校验 zod（历史存档）
 
 ### 第 5 步新增的环境与文件
 
@@ -273,7 +277,166 @@ DELETE /todos/:id      删除 todo（需登录，仅自己的）
 
 ### 下一步
 
-进入第 1 阶段第 6 步：分页、筛选、排序。目标：`GET /todos` 支持 `?page=1&pageSize=10`（Prisma skip/take）、`?done=true` 筛选（where）、`?sortBy=createdAt` 排序（orderBy），返回值带上总数与总页数。核心新概念：**query 参数的解析与默认值**——又是 zod 的用武之地（`z.coerce.number()` 处理「query 里一切都是字符串」）。
+（第 6 步已完成，最新进度见下方第 6 步记录。）
+
+---
+
+## 第一段第 6 步记录：分页、筛选、排序（已完成）
+
+### 第 6 步做了什么
+
+`GET /todos` 升级为标准列表接口，全部参数走 `todoQuerySchema` 校验：
+
+- 分页：`?page=1&pageSize=10`（coerce.number + int + min/max + default），`skip = (page-1)*pageSize`
+- 筛选：`?done=true`（`z.stringbool()` 解析布尔字符串）
+- 排序：`?sortBy=createdAt&order=desc`（`z.enum` 白名单 + 计算属性名 `orderBy: { [sortBy]: order }`）
+- 返回结构从裸数组改为 `{ data, total, page, pageSize, totalPages }`（**破坏性变更**，接前端时两边要同步）
+- `count` 与 `findMany` 共用同一个 `where` 变量，`Promise.all` 并行执行
+
+### 第 6 步核心收获
+
+**req.query 里一切都是字符串**（URL 无类型信息）——`"2"+1="21"`、`"10"<"9"` 为 true。三件武器各治一类：`z.coerce.number()` 转数字、`z.stringbool()`（zod v4）转布尔、`z.enum([...])` 白名单。
+
+**本步最著名的坑（已现场两幕演示）**：`z.coerce.boolean()` 底层是 `Boolean()`，而 `Boolean("false")===true`——`?done=false` 静默返回已完成的数据，不报错、看起来正常。修法 `z.stringbool()`。教训：**静默错误比崩溃可怕；工具的坑去工具文档找专用解**。
+
+**enum 白名单的双重红利**：非法 `?sortBy=hacker` 被 400 拦截，且报错自动列出全部合法值（`expected one of "createdAt"|"done"`）——API 自文档化，一行代码防注入+防误用。
+
+**声明式校验的复利**：`.min(1)`/`.max(100)` 四个字符换来人话报错（"Too small: expected number to be >=1"），经第 5 步的 ZodError→400 席位免费送达客户端。加规则不用加分支。
+
+**列表接口铁律**：count 和 findMany 的 where 必须是同一个变量——否则总数和列表对不上（组合筛选时必踩）。`totalPages = Math.ceil(total/pageSize)`。
+
+### 踩过的坑
+
+- **Prisma 对象层级**：skip/take/orderBy 是 findMany 的顶层选项，塞进 `where` 里会报 `Unknown argument`（Prisma 的报错会把 where 允许的字段全部列出来，X 光很给力）
+- **对象成员缺逗号**：语法错误直接起不来服务（比静默失灵好抓）
+- **旧进程/孤儿进程三次骗人**：改完代码必须杀干净旧进程再测；后台启动的服务会留下孤儿 node 进程继续占端口跑旧代码；本轮还遇到「编辑器保存时序打架」。铁律：**测试结果不符时，先确认测的是哪个版本的代码**
+- **分离式启动的服务在本环境活不过单次命令会话**：启动+轮询就绪+测试+清理必须放在同一条命令里
+
+> 对照认知：skip/take = SQL 的 OFFSET/LIMIT，where = WHERE，orderBy = ORDER BY。分页筛选排序是所有后端语言所有列表接口的标配形状，面试高频题。
+
+### 留下的待办
+
+- 加分题（可选）：错误中间件 `res.status((err as any).status ?? 500)`
+- 自选练习（可选）：register/login 挂 validate
+
+### 下一步
+
+第 7 步已完成，验证结果见下方第 7 步记录；当前任务见第 8 步。
+
+---
+
+## 第一段第 7 步记录：文件上传与文件访问（已完成）
+
+### 已实现的功能
+
+- 安装 `multer` 和 `@types/multer`。
+- `POST /uploads` 使用 `auth` 验证登录，通过 `upload.single('file')` 接收单个文件。
+- 文件保存到项目根目录的 `uploads/`，该目录已加入 `.gitignore`；multer 自动生成文件名称。
+- `fileFilter` 检查请求声明的 MIME 类型，允许 `image/jpeg`、`image/png`；此项检查不验证文件实际内容格式。
+- `limits.fileSize` 设置为 `5 * 1024 * 1024` 字节。
+- 上传成功返回 `201`，响应包含 `originalName`、`filename`、`mimetype`、`size`、`url`。
+- `app.use('/uploads', express.static('uploads'))` 提供文件访问；响应中的 `url` 为 `/uploads/${req.file.filename}`。
+- 未选择文件返回 `400`；文件类型错误和 multer 错误由已有错误处理中间件统一处理。
+
+### 核心概念
+
+- `app.use()` 注册中间件，请求按照注册顺序执行匹配的中间件。
+- `express.json()` 解析 JSON 请求体；multer 解析 `multipart/form-data` 文件上传请求。
+- `upload.single('file')` 要求客户端文件字段名称为 `file`；文件信息保存在 `req.file`。
+- `url` 字段告知客户端文件访问路径，`express.static()` 处理读取文件的请求。
+- 当前上传需要 token；文件读取地址可以直接访问，未配置登录校验。
+
+### 真实接口验证结果
+
+验证时间：2026-10-21 14:05（Asia/Shanghai）。启动当前代码，通过真实注册、登录取得 token，使用真实 PNG、JPEG 及约 7.69 MB 的 PNG 发送 HTTP 请求。
+
+| 验证项目 | 实际结果 |
+|---|---|
+| PNG、JPEG 上传 | 返回 `201`，响应中的文件名称、类型、大小正确 |
+| 检查本地保存文件 | 与原文件逐字节一致 |
+| 请求上传响应中的 `url` | 返回 `200`，下载内容与原文件逐字节一致 |
+| 缺少或无效 token | 返回 `401` |
+| 未选择文件 | 返回 `400`，提示“请选择文件” |
+| 文件字段名称错误 | 返回 `400`，提示“文件上传失败” |
+| 上传文本文件 | 返回 `400`，提示“只允许上传 JPEG 或 PNG 图片” |
+| 图片超过大小限制 | 返回 `400`，提示“文件不能超过5MB” |
+| 访问不存在的文件 | 返回 `404` |
+
+上述拒绝无效请求的行为均符合预期，且没有留下上传文件。验证完成后，测试服务已终止。
+
+验证脚本和结果保存在 `uploads/.verification/verify-upload.mjs`、`uploads/.verification/results.json`，随 `uploads/` 一同被 Git 忽略。测试账号及成功上传的测试文件已保留。
+
+### 当前文件访问行为
+
+multer 保存的文件没有扩展名，实测文件访问响应的 `Content-Type` 为 `application/octet-stream`。浏览器可能触发下载，浏览器图片预览尚未验证。
+
+---
+
+## 第一段当前进度：第 8 步 前端接入真实接口（进行中）
+
+### 已创建的前端项目
+
+- 项目位置：本仓库 `frontend/`，使用 Vue 3、TypeScript、Vite 和 Zod，依赖已经安装。
+- 前端地址：`http://localhost:5173`；Vite 设置 `strictPort: true`，端口被占用时直接终止。
+- 后端地址：默认 `http://localhost:3000`，可通过前端 `VITE_API_URL` 配置。
+- 后端已经安装 `cors`、`@types/cors`，注册了允许 `http://localhost:5173` 的跨域中间件。
+- 页面包含注册、登录、任务新增、标题编辑、完成状态切换、删除确认、分页、筛选、排序和图片上传。
+- token 保存在当前标签页的 `sessionStorage`，请求自动携带 `Authorization: Bearer <token>`；退出登录时清除，已登录请求返回 `401` 时返回登录页面。
+- 图片上传使用 `FormData`，访问地址从后端响应读取；前端读取实际文件内容，以返回的 MIME 类型创建临时预览地址。
+- 图片独立保存，当前后端没有图片与任务的关联接口。
+- 请求处理、账号表单、任务列表和图片上传分别放在 `src/api.ts`、`AuthPanel.vue`、`TaskBoard.vue`、`UploadPanel.vue`，共享请求与响应校验规则。
+
+### 启动方式
+
+两个终端分别启动后端和前端：
+
+```powershell
+# 仓库根目录启动后端
+npm run dev
+```
+
+```powershell
+# 另一个终端进入前端目录并启动
+cd frontend
+npm run dev
+```
+
+### 已执行的验证
+
+验证日期：2026-10-21。执行 `npm run typecheck` 通过；启动真实 Express 和 Vite 服务，通过 Vite 加载实际前端请求模块并调用真实数据库，以下检查通过：
+
+| 验证项目 | 实际结果 |
+|---|---|
+| Vite 开发服务、全部 Vue 组件、请求模块、样式和图标 | HTTP 返回 `200`，模块编译通过 |
+| `http://localhost:5173` 来源的 GET、POST、PATCH、DELETE 预检 | 返回 `204`，允许来源、方法和 `authorization,content-type` 正确 |
+| 前端请求模块注册与登录 | 注册及登录成功；重复注册返回 `409`，错误密码返回 `401` |
+| 新增任务与分页 | 创建 6 项任务，每页 5 项，第二页包含 1 项，总页数为 2 |
+| 编辑标题与完成状态 | 返回更新后的真实数据 |
+| 完成状态筛选与创建时间升序 | 已完成 1 项、待完成 5 项，顺序符合查询条件 |
+| 删除不存在的任务 | 返回 `404`，前端请求模块保留业务错误结果 |
+| 前端 FormData 上传及文件下载 | 上传成功，返回地址可访问，下载内容与原图片逐字节一致 |
+| 登录及未登录页面的 Vue 服务端渲染 | 分别包含任务界面和账号表单 |
+
+验证脚本和最近一轮结果保存在被 Git 忽略的 `frontend/.verification/verify.mjs`、`frontend/.verification/results.json`。每轮验证新建的测试账号、6 项任务及上传文件均已保留；测试服务已经终止。
+
+### 新增任务与持久化专项验证（2026-10-21）
+
+通过实际前端请求模块、真实 Express 服务和 PostgreSQL，新增“学习前端接口接入”，执行以下检查并全部通过：
+
+- 使用独立请求重新查询列表，同一项任务的全部字段与新增响应一致。
+- 保留 Node 原生 `sessionStorage` 后重新创建 Vue 应用，服务端渲染仍为登录状态；此检查尚未覆盖真实浏览器刷新。
+- 清除 token 和用户名后，请求任务列表返回 `401`，重新渲染显示登录页面。
+- 使用原账号重新登录，任务仍然存在，全部字段保持一致。
+- 终止并重新启动本次创建的后端进程，原任务仍然存在，全部字段保持一致。
+
+验证记录：`frontend/.verification/persistence-results.json`；复现脚本：`frontend/.verification/verify-persistence.mjs`。本次新建的一个测试账号及一项任务已保留，测试服务已经终止。业务代码没有修改。
+
+### 尚未完成的验证
+
+- Windows 浏览器控制工具无法可靠识别当前页面地址，自动交互验证因此停止；尚未完成真实浏览器中的布局检查、注册登录操作、任务操作、文件选择及预览验证。
+- 成功删除任务的真实调用尚未执行，当前仅验证了删除不存在任务的错误响应。
+- 登录失效后界面返回登录页面的行为已经实现，尚未在真实浏览器中验证。
+- 类型检查、HTTP 接口检查和服务端渲染均不代表上述浏览器交互已经验证。第 8 步保持进行中，完成后再进入第 9 步测试与部署。
 
 ---
 
@@ -317,7 +480,7 @@ const todos: Todo[] = [
 ]
 ```
 
-`Todo[]` 表示这是一个数组，每一项都必须符合 `Todo` 接口。当前没接数据库，数据存在内存里，服务重启就丢失。
+`Todo[]` 表示这是一个数组，每一项都必须符合 `Todo` 接口。第 1 步使用内存存储，服务重启后数据丢失；当前项目已经使用 Prisma 和 PostgreSQL 持久化数据。
 
 ### 启动服务
 
@@ -341,7 +504,9 @@ PATCH  /todos/:id   更新 todo
 DELETE /todos/:id   删除 todo
 ```
 
-## 建议的当前版 `src/app.ts`
+## 第 1 步内存版代码示例
+
+当前实现见 `src/app.ts`，以下示例用于回顾第 1 步的内存 CRUD。
 
 ```ts
 import express from 'express'
