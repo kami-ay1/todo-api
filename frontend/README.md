@@ -22,7 +22,23 @@ npm run dev
 
 开发环境通过 `.env.development` 设置 `VITE_API_URL=http://localhost:3000`。需要修改时，参考 `.env.example` 在 `frontend/.env.local` 配置 `VITE_API_URL`，同时将后端 `CORS_ORIGIN` 设置为实际前端来源。
 
-部署时通过部署环境变量或 `frontend/.env.production.local` 设置实际的 `VITE_API_URL`。该配置会写入前端资源，修改后需要重新生成资源。配置缺失或无效时，请求模块加载会报错。
+部署时通过部署环境变量或 `frontend/.env.production.local` 设置实际的 `VITE_API_URL`。该配置会写入前端资源，修改后需要重新生成资源。配置缺失或无效时，生产构建会直接失败。
+
+## 生产构建
+
+```powershell
+npm run build
+```
+
+构建前执行类型检查和环境变量校验，成功后将静态文件写入 `frontend/dist/`。将该目录发布到静态文件服务，后端 `CORS_ORIGIN` 配置为实际前端来源。
+
+本地检查构建结果：
+
+```powershell
+npm run preview
+```
+
+预览地址为 `http://localhost:4173`。需要在预览页面调用后端时，后端 `CORS_ORIGIN` 应配置为该来源。
 
 ## 实现说明
 
@@ -32,6 +48,7 @@ npm run dev
 - `src/components/UploadPanel.vue`：使用 `FormData` 上传图片，读取返回地址的真实内容并预览。图片独立存储，后端尚未提供任务附件关联。
 - `src/App.vue`：账号状态和页面布局。
 - `src/style.css`：响应式样式。
+- `src/utils/env.ts`：构建配置和请求模块共用的公开环境变量校验规则。
 
 所有任务数据来自真实 API。HTTP 业务错误直接显示服务器文案；响应格式错误及网络异常会直接暴露。文件静态地址目前公开访问。
 

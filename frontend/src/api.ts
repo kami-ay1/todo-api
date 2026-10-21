@@ -1,8 +1,7 @@
 import { z } from 'zod'
+import { frontendEnvSchema } from './utils/env'
 
-const environment = z.object({
-  VITE_API_URL: z.url({ protocol: /^https?$/, error: 'VITE_API_URL 必须配置为有效的 HTTP 或 HTTPS 地址' }),
-}).parse(import.meta.env)
+const environment = frontendEnvSchema.parse(import.meta.env)
 
 /** 当前运行环境中已经校验的后端地址。 */
 export const apiUrl = environment.VITE_API_URL

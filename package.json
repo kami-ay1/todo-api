@@ -5,7 +5,12 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "tsx src/app.ts"
+    "dev": "tsx src/app.ts",
+    "build": "prisma generate && tsc --project tsconfig.build.json",
+    "start": "node dist/app.js",
+    "db:migrate": "prisma migrate deploy",
+    "db:status": "prisma migrate status",
+    "db:baseline": "prisma migrate diff --from-config-datasource --to-schema \"prisma/schema.prisma\" --exit-code && prisma migrate resolve --applied 0_init"
   },
   "keywords": [],
   "author": "",

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview --host localhost --port 4173 --strictPort",
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {

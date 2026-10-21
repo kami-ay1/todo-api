@@ -9,6 +9,11 @@ export default defineConfig({
   // schema 文件位置
   schema: 'prisma/schema.prisma',
 
+  // 部署时按目录顺序执行已提交的迁移。
+  migrations: {
+    path: 'prisma/migrations',
+  },
+
   // 数据库连接串(db push / migrate 时用)
   // Prisma 7:连接串从 schema.prisma 移到了这里
   datasource: {

@@ -4,6 +4,7 @@ import { config } from './config.js'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from './generated/prisma/client.js'
+import type { Prisma } from './generated/prisma/client.js'
 import bcrypt from 'bcryptjs'
 import jwt from "jsonwebtoken"
 import { z,ZodError } from 'zod'
@@ -109,7 +110,9 @@ const validate = (schema: z.ZodType) => {
 app.get('/todos',auth, async (req, res) => {
     const query = todoQuerySchema.parse(req.query)
     const skip = (query.page - 1) * query.pageSize
-    const where = { userId: req.userId!, done: query.done }   // count 和 findMany 必须共用同一个条件
+    const where: Prisma.TodoWhereInput = { userId: req.userId! }
+    // 只在参数存在时添加完成状态筛选，避免向 Prisma 传入 undefined。
+    if (query.done !== undefined) where.done = query.done
     const [total, data] = await Promise.all([                 // 两个互不依赖的查询,并行跑
       prisma.todo.count({ where }),                           // 符合条件的总条数(不受分页影响)
       prisma.todo.findMany({

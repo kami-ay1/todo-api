@@ -1,0 +1,2 @@
+# PostgreSQL 迁移记录，由 Prisma Migrate 使用。
+provider = "postgresql"

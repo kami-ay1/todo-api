@@ -26,7 +26,7 @@ npm install
 npm exec prisma -- generate
 ```
 
-数据库需要已有与 `prisma/schema.prisma` 一致的表结构。启动服务：
+数据库表结构准备方式见下方迁移说明。开发环境启动服务：
 
 ```powershell
 npm run dev
@@ -49,15 +49,70 @@ npm --prefix frontend run dev
 
 部署时在前端环境中配置实际的 `VITE_API_URL`，例如通过部署平台环境变量或 `frontend/.env.production.local`。该地址在 Vite 处理前端代码时写入页面资源，修改后需要重新生成前端资源。`VITE_` 变量可被浏览器读取，不应包含密码或 JWT 签名密钥。
 
-前端缺少 `VITE_API_URL` 或填写无效地址时，会在请求模块加载时明确报错。
+前端构建与请求模块共用 `frontend/src/utils/env.ts` 的校验规则。缺少 `VITE_API_URL` 或填写无效地址时，生产构建立即失败。
+
+## 数据库迁移
+
+迁移文件位于 `prisma/migrations/`。执行前确认 `DATABASE_URL` 指向目标数据库。
+
+新建的空数据库直接执行：
+
+```powershell
+npm run db:migrate
+npm run db:status
+```
+
+已有通过 `db push` 创建的数据库，首次使用迁移前执行：
+
+```powershell
+npm run db:baseline
+npm run db:migrate
+npm run db:status
+```
+
+`db:baseline` 会先只读比对数据库和 `prisma/schema.prisma`，仅在结构一致时，将 `0_init` 登记为已应用；结构不一致时直接终止。登记操作写入 Prisma 的迁移记录表，既有业务记录保持不变。此命令只适用于尚未登记初始迁移的已有数据库。
+
+后续模型变更需要在开发环境生成并提交新的迁移文件，再通过 `db:migrate` 应用到部署数据库。
+
+## 部署构建与启动
+
+后端在具备完整依赖的部署准备环境执行：
+
+```powershell
+npm ci
+npm run build
+npm run db:migrate
+npm run db:status
+npm start
+```
+
+`build` 先生成 Prisma Client，再通过 `tsconfig.build.json` 将后端源码编译至 `dist/`。`start` 使用 Node 运行 `dist/app.js`。运行环境设置 `NODE_ENV=production`，并注入上方四项必填配置。
+
+首次接入已有数据库时，先按前述步骤完成 `db:baseline`。`db:migrate` 需要 Prisma CLI，因此应在包含开发依赖的迁移阶段执行。
+
+前端配置实际 `VITE_API_URL` 后执行：
+
+```powershell
+npm --prefix frontend ci
+npm --prefix frontend run build
+```
+
+将 `frontend/dist/` 发布到静态文件服务，后端 `CORS_ORIGIN` 配置为实际前端来源。本地查看构建产物：
+
+```powershell
+npm --prefix frontend run preview
+```
+
+预览地址为 `http://localhost:4173`，该命令用于本地检查。部署时为 `uploads/` 配置持久化目录，确保服务更新后仍能读取上传文件。
 
 ## 检查
 
 ```powershell
 npm exec prisma -- validate
+npm exec tsc -- --project tsconfig.build.json --noEmit
 npm --prefix frontend run typecheck
 npm audit
 npm --prefix frontend audit
 ```
 
-学习记录见 `EXPRESS_LEARNING_PLAN.md`。部署启动命令及生产数据库表结构管理尚未配置。
+学习记录见 `EXPRESS_LEARNING_PLAN.md`。当前已验证本地生产构建、编译产物启动及数据库迁移流程，线上部署目标尚未配置。
