@@ -38,15 +38,3 @@ npm run dev
 ```powershell
 npm run typecheck
 ```
-
-## 登录状态组件测试
-
-```powershell
-npm test
-```
-
-`tests/src/App.test.ts` 使用 Vitest、Vue Test Utils 和 jsdom 加载完整 App 组件，通过真实 Express 服务及 PostgreSQL 验证有效 token、无效 token、过期 token、退出登录和重新登录。
-
-测试需要根目录后端依赖、有效的 `.env` 及运行中的 PostgreSQL，会自行启动并终止使用 3000 端口的后端进程。运行前该端口需要空闲。每次运行会创建并保留一个专用测试账号。
-
-此项测试覆盖 DOM 测试环境中的组件交互；真实浏览器的布局、刷新及导航行为仍需单独验证。
