@@ -2,6 +2,7 @@ import express from 'express'
 import type { Request, Response, NextFunction } from 'express'
 import { config } from './config.js'
 import { Pool } from 'pg'
+import { fileURLToPath } from 'node:url'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from './generated/prisma/client.js'
 import type { Prisma } from './generated/prisma/client.js'
@@ -233,6 +234,9 @@ app.post('/uploads', auth, upload.single('file'), (req, res) => {
     url: `/uploads/${req.file.filename}`,
   })
 })
+
+// 从固定的构建目录提供前端页面，与接口及上传文件共用访问地址。
+app.use(express.static(fileURLToPath(new URL('../frontend/dist/', import.meta.url))))
 
 // 错误处理中间件:四个参数是身份标识,Express 靠参数个数认出它
 // 决策链:ZodError(客户端传参不合格)→400 / P2025(记录不存在)→404 / 其他→500

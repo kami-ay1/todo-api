@@ -1,8 +1,8 @@
-# Node 后端学习计划（Express → NestJS 两段式）
+# Node 后端学习计划（Express → nest-admin / NestJS）
 
 这份文档用于记录当前 `todo-api` 项目的学习上下文。以后继续学习时，可以先把这个文件给 AI 看，避免重复说明前面的进度。
 
-最近更新：2026-10-21。前后端生产构建、编译产物启动及新建和已有数据库迁移流程均已验证通过，部署环境变量配置已经提交。线上部署目标尚未配置；当前项目不保留测试文件，第 8 步保留真实浏览器交互待验证事项。
+最近更新：2026-10-21。已进入 NestJS 学习阶段，主线项目采用 [buqiyuan/nest-admin](https://github.com/buqiyuan/nest-admin)，完整路线见 [NestJS 学习计划](NESTJS_LEARNING_PLAN.md)。当前从阶段 0 的环境和独立学习副本准备开始，尚未启动 nest-admin。Express 本机部署与既有验证记录保留，真实浏览器待验证事项继续记录。
 
 进度记录规则：每项功能验证完成后，立即更新完成状态、实际接口、验证结果和下一项任务；尚未执行或验证的内容保留为待办。
 
@@ -11,7 +11,7 @@
 本计划刻意分成两段，目的是同时获得两种能力：
 
 - **Express 段**：理解 HTTP 的「裸」本质 —— 一个请求就是一个 `req` 对象，处理完主动用 `res.json()` 响应，中间件就是一串函数排成链。这是所有后端语言（Java、Go 等）的共同基础。
-- **NestJS 段**：学习分层架构、依赖注入、DTO、Guard 这些工程化概念。NestJS 故意照着 Java Spring 的设计做的，学会后几乎能 1:1 迁移到 Java Spring，也能顺滑迁移到 Go 的工程化写法。
+- **NestJS 段**：以 nest-admin 学习模块组织、依赖注入、DTO、Guard、事务、权限、异步任务和部署，补充源码覆盖不足的知识与验收练习。分层、依赖管理和数据一致性等概念可以帮助理解 Java Spring 与 Go 后端中的相关设计。
 
 > 类比：Express 教你「DOM 事件到底怎么运作」，NestJS 教你「组件化/状态管理怎么组织」。两层都走，迁移到任何后端语言都不会发怵。
 
@@ -27,31 +27,17 @@
 6. ✅ 加分页、筛选、排序（**已完成**）
 7. ✅ 加文件上传（multer）及文件访问（**已完成，2026-10-21 验证通过**）
 8. 给前端项目接真实接口（**前端已创建，接口和部分组件已验证，浏览器交互待验证**）
-9. 补测试和部署（**当前步骤，本地生产构建、启动及迁移已经验证，线上部署待开始**）
+9. 补测试和部署（**本机部署及迁移已经验证，当前没有外部服务器，公网部署尚未配置**）
 
 ### 第二段：NestJS（学习工程架构）
 
-完成第一段后，把同一个 Todo 项目**用 NestJS 重写一遍**，横向对比。重点不是再学一遍 CRUD，而是吃透这些**可迁移到 Java/Go 的概念**：
+主线项目：[buqiyuan/nest-admin](https://github.com/buqiyuan/nest-admin)。具体阶段、源码入口、动手任务、验收标准和当前进度统一维护在 [NESTJS_LEARNING_PLAN.md](NESTJS_LEARNING_PLAN.md)。
 
-| NestJS 概念 | Java Spring 对应 | Go 对应 | 学什么 |
-|---|---|---|---|
-| Module | `@Module` / Bean 配置 | package 划分 | 代码怎么按模块组织 |
-| Controller | `@RestController` | handler 函数 | 请求入口分层 |
-| Service（Provider） | `@Service` | service struct | 业务逻辑层 |
-| Dependency Injection | `@Autowired` | 手动 wire | 对象怎么被组装、解耦 |
-| DTO + ValidationPipe | `@Valid` + Bean Validation | struct tag / validator | 参数校验分层 |
-| Guard | `@PreAuthorize` / Filter | middleware | 鉴权怎么做 |
-| Exception Filter | `@ControllerAdvice` | recover middleware | 统一错误处理 |
+主线使用 NestJS + Fastify + TypeORM + MySQL + Redis，通过完善项目已有 Todo 模块贯穿请求处理、数据访问、认证授权、异步任务、上传、实时通信、验收和本机部署。请求生命周期、Provider 作用域、完整数据归属、事务边界、队列重试、幂等、密码存储和启动校验均纳入必修。
 
-NestJS 阶段的具体路线：
+原计划中的 Prisma + PostgreSQL 集成、Express FileInterceptor 放入独立拓展练习。GraphQL、微服务、多租户和分布式追踪作为后续方向课程，分别记录进度。
 
-1. `nest new` 脚手架 + 理解 Module/Controller/Service 三件套
-2. 用 NestJS 重写 Todo CRUD（对应第一段的第 1 步）
-3. NestJS 接 Prisma（对应第 2 步）
-4. NestJS 加 JWT + Guard 登录态（对应第 3 步）
-5. NestJS 用 ValidationPipe + DTO 做校验（对应第 4、5 步，NestJS 原生支持，比 Express 简洁）
-6. NestJS 分页筛选排序 + 文件上传（`FileInterceptor`）
-7. NestJS 测试（`@nestjs/testing`）和部署
+当前任务：阶段 0，核查环境、准备 `nest-admin-study/` 独立学习副本及本机 MySQL、Redis，再验证 Swagger 和登录。当前仅完成源码审阅及部分工具检查，环境启动和业务实践均未标记完成。
 
 ---
 
@@ -141,9 +127,9 @@ NestJS 阶段的具体路线：
 
 - `POST /todos` 的 create data 带上 `userId: req.userId!`，新数据归属当前用户
 - `GET /todos` 用 `where: { userId }` 只返回自己的
-- 详情/PATCH/DELETE 先 `findFirst({ where: { id, userId } })` 验归属，查不到统一 404 —— 用户 B 对 A 的数据「看不见也改不动」，404 而不是 403（对越权者来说别人的数据等于不存在）
+- 详情/PATCH/DELETE 使用 `findFirst({ where: { id, userId } })` 检查归属，查不到统一返回 404；其他用户无法读取、修改或删除该记录。
 
-**Prisma 坑**：`findUnique` 的 `where` 只接受唯一字段（如 id），写不了 `{ id, userId }` 组合；`findFirst` 可以。
+**Prisma 查询条件**：Prisma 7 的 `findUnique` 条件需要至少包含一个唯一字段，也可以附加 `userId` 等非唯一条件；当前项目使用 `findFirst({ where: { id, userId } })` 检查记录归属。
 
 **中间件两种挂法**（都合法，选一保持一致）：
 
@@ -206,9 +192,9 @@ DELETE /todos/:id      删除 todo（需登录，仅自己的）
 
 - **四参数是身份标识**：Express 靠参数个数认出错误中间件，写三个参数就是普通中间件，永远收不到错误
 - **必须挂在路由之后**：错误只向后流，排在出错点之后的错误处理器才接得住（实测把路由写在错误中间件之后，错误直接落到 Express 出厂兜底的 HTML 页）
-- **日志和响应分离**：`console.log(err)` 留全量真相在服务端，客户端只给模糊文案（不暴露堆栈）
+- **日志和响应分离**：`console.log(err)` 留完整错误信息在服务端，客户端仅返回适合公开的文案（不暴露内部调用信息）
 
-**Express 5 的关键红利**：async 路由里 throw / Promise reject 会被框架自动捕获并转给错误中间件，**不需要** try/catch 也不需要 `express-async-handler`（那是 Express 4 时代的东西，看旧文章注意版本差异）。实测：路由里 `throw new Error('测试错误')` → 中间件收到完整错误 + 堆栈。
+**Express 5 异步错误处理**：async 路由里 throw / Promise reject 会被框架自动捕获并转给错误中间件。实测：路由里 `throw new Error('测试错误')` → 中间件收到完整错误及详细调用信息。
 
 **业务分支 ≠ 异常**：`if (!todo) 404`、重名 409、密码错 401 这些主动检查后的响应是正常业务逻辑，保留在路由里。auth 中间件里的 try/catch 也保留——它做的是有意义的翻译（验签失败 → 401），不是样板。
 
@@ -295,7 +281,7 @@ DELETE /todos/:id      删除 todo（需登录，仅自己的）
 
 ### 第 6 步核心收获
 
-**req.query 里一切都是字符串**（URL 无类型信息）——`"2"+1="21"`、`"10"<"9"` 为 true。三件武器各治一类：`z.coerce.number()` 转数字、`z.stringbool()`（zod v4）转布尔、`z.enum([...])` 白名单。
+**查询参数需要运行时转换和校验**：标量值通常以字符串形式接收，重复参数及解析器配置也可能产生数组或对象。`"2"+1="21"`、`"10"<"9"` 为 true。`z.coerce.number()` 转数字、`z.stringbool()` 转布尔、`z.enum([...])` 限制合法值。
 
 **本步最著名的坑（已现场两幕演示）**：`z.coerce.boolean()` 底层是 `Boolean()`，而 `Boolean("false")===true`——`?done=false` 静默返回已完成的数据，不报错、看起来正常。修法 `z.stringbool()`。教训：**静默错误比崩溃可怕；工具的坑去工具文档找专用解**。
 
@@ -466,7 +452,7 @@ npm run dev
 
 ---
 
-## 第一段当前进度：第 9 步 自动化测试与部署（进行中）
+## 第一段第 9 步记录：自动化测试与本机部署
 
 ### 登录注册与 JWT 正式接口测试（2026-10-21 已通过）
 
@@ -610,7 +596,19 @@ npm run dev
 
 ### 下一项任务
 
-确认线上后端、静态文件服务和 PostgreSQL 的部署目标，配置持久化上传目录及实际访问地址后执行部署。前端已有的真实浏览器交互待验证事项继续保留。
+使用 `npm run local` 在当前电脑体验生产构建；前端已有的真实浏览器交互待验证事项继续保留。当前没有外部服务器，公网部署不作为本次配置的执行目标。
+
+### 当前电脑本机部署（2026-10-21 已通过）
+
+- 新增 `deploy/local.ts` 和根目录命令 `npm run local`，依次执行后端构建、前端生产构建，再使用 Node 运行 `dist/app.js`。每一步失败立即终止。
+- 运行地址使用 `.env` 的 `PORT`。启动过程为当前进程设置 `NODE_ENV=production`，并将 `CORS_ORIGIN` 与 `VITE_API_URL` 设置为对应的 `http://localhost:端口`，不修改 `.env`。
+- Express 从固定的 `frontend/dist/` 读取前端构建产物，页面、接口及上传文件共用本机地址，无需单独启动 Vite。
+- 上传文件继续保存在项目根目录的 `uploads/`，构建和重启不会清除目录。
+- 根目录 README、前端 README 和 `deploy/README.md` 已记录本机配置及启动方式。当前没有安装系统服务或配置开机启动。
+
+真实验证通过：`npm run local` 完成两侧生产构建并启动；同一个地址返回首页和全部构建资源；真实注册、登录、新增任务和列表查询正常；跨域来源正确；真实 PNG 上传、访问及本地保存内容逐字节一致。启动脚本类型检查通过。
+
+验证创建的一个专用账号、一项任务及成功上传的图片保留在本地。验证服务已终止，临时脚本和图片样本已清理；没有修改现有数据库结构。
 
 ---
 
@@ -826,7 +824,7 @@ DELETE http://localhost:3000/todos/1
 
 原因：当前 Node.js 版本过旧，无法运行新版 TypeScript 工具链中的 `??` 语法。
 
-解决：升级 Node.js 到较新的 LTS 版本，建议 Node 18+ 或 20+。
+解决：使用目标项目支持的 Node.js 版本。NestJS 学习项目声明要求 Node.js 20 以上，当前电脑使用 24.9.0。
 
 检查命令：
 
@@ -928,31 +926,18 @@ ECMAScript 导入和导出不能写入 "verbatimModuleSyntax" 下的 CommonJS �
 
 ---
 
-## 第二段：NestJS 阶段（第一段完成后启动）
+## 第二段：nest-admin 学习入口
 
-> 进入前，先在项目里执行 `npm i -g @nestjs/cli`，然后用 `nest new` 新建一个 NestJS 项目（或在本仓库开一个 `nest-app/` 子目录）。
+当前执行 [NestJS 专项学习计划](NESTJS_LEARNING_PLAN.md)。该文件统一维护阶段 0 至 18 的阅读入口、实践任务、验收要求和进度，主线沿用项目的 Fastify、TypeORM、MySQL、Redis。
 
-### NestJS 阶段路线
-
-1. **脚手架与三件套**：`nest new` + 生成 `TodosModule` / `TodosController` / `TodosService`，理解它们怎么配合。
-2. **重写 Todo CRUD**：用 NestJS 实现和第一段一样的 5 个接口，横向对比 `@Get` / `@Post` / `@Param` / `@Body` 和 Express 的 `req.params` / `req.body`。
-3. **接 Prisma**：把 Service 里的内存数组换成 Prisma，复用第一段的数据库设计。
-4. **JWT + Guard**：`@nestjs/jwt` 实现 登录/注册，用 Guard 保护 todo 接口（对应 Express 的登录中间件）。
-5. **ValidationPipe + DTO**：用 class-validator 注解做参数校验（对应第一段的 zod）。
-6. **分页筛选排序 + 文件上传**：`FileInterceptor` 接收文件。
-7. **测试与部署**：`@nestjs/testing` 写测试，部署 NestJS 服务。
-
-### 学习重点（可迁移能力）
-
-每一步都要问自己：「这个概念在 Java Spring / Go 里叫什么、长什么样？」把对照表用起来。NestJS 阶段结束后，你看 Java Spring Boot 的 Controller/Service/`@Autowired`/`@Valid` 会觉得眼熟，看 Go 的分层项目结构也不会陌生。
+Express 经验继续用于理解 HTTP、数据归属、参数校验和错误处理。Java Spring 与 Go 的概念名称可在相关阶段进行补充说明，具体框架行为分别核对。
 
 ---
 
 ## 学习原则
 
-- 每一步都先跑通最小功能，再重构
-- 不提前设计复杂架构
-- 第一段先把内存版 CRUD 写熟，理解请求、响应、路由和数据流
-- 切到 NestJS 不是重学 CRUD，而是学架构思维
-- 每学一个概念，对照它在 Java/Go 里长什么样
-- 每次只解决一个明确问题
+- 每次学习一个明确主题，结合实际源码和请求解释。
+- 每项实践同时明确输入、输出、权限、错误和数据一致性要求。
+- 用户编写并解释关键代码，运行真实依赖完成验收。
+- 源码中存在的功能与用户已经掌握的知识分别记录。
+- 发现问题时先重现，再修改并验证；完成后立即更新阶段进度。

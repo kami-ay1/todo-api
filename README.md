@@ -2,6 +2,20 @@
 
 Express + Prisma + PostgreSQL 后端，前端位于 `frontend/`。
 
+## 当前电脑部署
+
+配置根目录 `.env`，确认本地 PostgreSQL 正常运行且数据库表结构已准备好，然后在项目根目录执行：
+
+```powershell
+npm ci
+npm --prefix frontend ci
+npm run local
+```
+
+`local` 命令依次构建后端与前端，使用 Node 运行生产编译产物。前端页面、API 和上传文件使用同一个本机地址，例如 `PORT=3000` 时访问 `http://localhost:3000`。
+
+此命令为当前进程配置生产模式及对应的前端地址和跨域来源，原 `.env` 内容保持不变。终端需要持续运行，按 `Ctrl+C` 终止服务。具体操作见 `deploy/README.md`。
+
 ## 后端配置与启动
 
 首次配置时，将根目录 `.env.example` 复制为 `.env`，填写真实的数据库连接和 JWT 密钥。已有 `.env` 时直接补充所需字段。
@@ -115,4 +129,4 @@ npm audit
 npm --prefix frontend audit
 ```
 
-学习记录见 `EXPRESS_LEARNING_PLAN.md`。当前已验证本地生产构建、编译产物启动及数据库迁移流程，线上部署目标尚未配置。
+学习记录见 `EXPRESS_LEARNING_PLAN.md`。当前使用本机部署，生产构建、页面与 API 共用地址、上传文件访问及数据库迁移流程已经验证；公网访问和开机启动尚未配置。

@@ -2,6 +2,10 @@
 
 Vue 3 + TypeScript + Vite，连接本仓库的 Express API。页面包含注册登录、任务新增与编辑、完成状态切换、删除确认、分页筛选排序和图片上传。
 
+## 本机部署
+
+在仓库根目录运行 `npm run local`，即可构建前后端并从后端地址提供页面，例如 `http://localhost:3000`。此方式不需要单独启动 Vite，具体说明见 `deploy/README.md`。
+
 ## 启动
 
 在仓库根目录启动后端：
