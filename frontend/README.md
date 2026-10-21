@@ -20,7 +20,9 @@ npm run dev
 
 打开 `http://localhost:5173`。端口被占用时 Vite 直接终止，避免实际地址与后端跨域配置不一致。
 
-后端地址默认为 `http://localhost:3000`。需要修改时，在 `frontend/.env.local` 配置 `VITE_API_URL`，同时根据实际前端来源修改后端 CORS 配置。
+开发环境通过 `.env.development` 设置 `VITE_API_URL=http://localhost:3000`。需要修改时，参考 `.env.example` 在 `frontend/.env.local` 配置 `VITE_API_URL`，同时将后端 `CORS_ORIGIN` 设置为实际前端来源。
+
+部署时通过部署环境变量或 `frontend/.env.production.local` 设置实际的 `VITE_API_URL`。该配置会写入前端资源，修改后需要重新生成资源。配置缺失或无效时，请求模块加载会报错。
 
 ## 实现说明
 

@@ -1,7 +1,11 @@
 import { z } from 'zod'
 
-/** 后端地址可以通过 VITE_API_URL 配置。 */
-export const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+const environment = z.object({
+  VITE_API_URL: z.url({ protocol: /^https?$/, error: 'VITE_API_URL 必须配置为有效的 HTTP 或 HTTPS 地址' }),
+}).parse(import.meta.env)
+
+/** 当前运行环境中已经校验的后端地址。 */
+export const apiUrl = environment.VITE_API_URL
 
 const todoSchema = z.object({
   id: z.number(),

@@ -1,6 +1,6 @@
 import express from 'express'
 import type { Request, Response, NextFunction } from 'express'
-import 'dotenv/config'
+import { config } from './config.js'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from './generated/prisma/client.js'
@@ -35,7 +35,7 @@ declare global {
     }
   }
 }
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const pool = new Pool({ connectionString: config.DATABASE_URL })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
@@ -61,7 +61,7 @@ const upload = multer({
   },
 })
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: config.CORS_ORIGIN,
 }))
 app.use(express.json())
 app.use('/uploads', express.static('uploads'))
@@ -85,7 +85,7 @@ const auth = (req: Request, res: Response, next: NextFunction) => {
     return 
   }
   try{
-    const payload = jwt.verify(token,process.env.JWT_SECRET!)
+    const payload = jwt.verify(token,config.JWT_SECRET)
     req.userId=(payload as any).userId
     next()
   }catch{
@@ -212,7 +212,7 @@ app.post("/auth/login",async(req,res)=>{
       res.status(401).json({message:'用户名或密码错误'})
       return
     }
-    const token =jwt.sign({userId:user.id},process.env.JWT_SECRET!,{expiresIn:'7d'})
+    const token =jwt.sign({userId:user.id},config.JWT_SECRET,{expiresIn:'7d'})
     res.json({token})
 })
 
@@ -257,6 +257,6 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   }
 })
 
-app.listen(3000, () => {
-  console.log('Server running at http://localhost:3000')
+app.listen(config.PORT, () => {
+  console.log(`Server running at http://localhost:${config.PORT}`)
 })
