@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "vitest run",
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
@@ -13,8 +14,11 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "6.0.10",
+    "@vue/test-utils": "2.4.6",
+    "jsdom": "26.1.0",
     "typescript": "6.0.3",
     "vite": "8.3.4",
+    "vitest": "5.0.5",
     "vue-tsc": "3.3.13"
   }
 }
