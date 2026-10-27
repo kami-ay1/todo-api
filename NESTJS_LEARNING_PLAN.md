@@ -1,12 +1,12 @@
 # NestJS 后端学习计划：以 nest-admin 为实践项目
 
-更新日期：2026-10-21。
+更新日期：2026-10-22。
 
-学习项目：[buqiyuan/nest-admin](https://github.com/buqiyuan/nest-admin)。源码审阅基于 2026-10-21 获取的 `main` 分支，学习环境尚未启动。
+学习项目：[buqiyuan/nest-admin](https://github.com/buqiyuan/nest-admin)。源码审阅基于 2026-10-21 获取的 `main` 分支；独立练习工程的基础 HTTP 服务已完成启动验证。
 
-当前进度：阶段 0，环境与学习副本准备。Node.js 已确认是 `24.9.0`，本机存在 pnpm 命令入口；pnpm 实际版本和 MySQL、Redis 连接能力待验证。未在当前命令路径发现 mysql、redis-server、docker，也未发现 MySQL、Redis 的 Windows 服务。PostgreSQL 18 已运行，继续用于原 Express 项目。
+当前进度：阶段 2 的 Controller 请求体读取及 TodoModule 注册均已通过真实 HTTP 验证，下一项为创建 TodoService 并学习 Provider 注册和注入。阶段 0 的基础工程已完成，MySQL、Redis 等准备仍待完成。Node.js 为 `24.9.0`，npm 为 `11.6.0`，练习工程的依赖安装、类型检查、启动及 HTTP 请求检查通过。本机存在 pnpm 命令入口，pnpm 实际版本和 MySQL、Redis 连接能力待验证。未在当前命令路径发现 mysql、redis-server、docker，也未发现 MySQL、Redis 的 Windows 服务。PostgreSQL 18 已运行，继续用于原 Express 项目。
 
-本文件中的 `src/`、`deploy/`、配置文件路径均相对于 nest-admin 根目录。独立学习副本使用本工作区的 `nest-admin-study/` 目录，源码审阅用的 `.verification/research/` 目录不作为正式学习目录。
+各阶段“源码入口”中的 `src/`、`deploy/`、配置文件路径均相对于 nest-admin 参考源码根目录。独立练习工程使用本工作区的 `nest-admin-study/` 目录，从基础启动代码开始，由用户根据需求编写业务模块。源码审阅用的 `.verification/research/nest-admin-main/` 作为阅读参考。
 
 配套前端为 [buqiyuan/vue3-antdv-admin](https://github.com/buqiyuan/vue3-antdv-admin)，已克隆到 `C:/Users/15983/Desktop/CODE/vue3-antdv-admin`，与 `todo-api` 同级，使用独立 Git 仓库。当前提交为 `64c03db76710e70b85aedf40a9ca87101946d70d`，采用浅克隆，仅包含当前提交所需历史。前端用于阅读接口需求及后续真实联调。
 
@@ -23,23 +23,73 @@
 - 设计接口契约、执行真实验收、记录日志、检查服务健康、处理启动和终止，以及完成本机部署。
 - 能在不复制现有业务实现的情况下，为项目新增一个完整功能模块。
 
-主线沿用项目的 NestJS、Fastify、TypeORM、MySQL、Redis。审阅时锁文件中的 NestJS 为 `11.0.13`，TypeORM 为 `0.3.22`；实际学习版本在阶段 0 记录，不自动更新依赖。
+主线沿用项目的 NestJS、Fastify、TypeORM、MySQL、Redis。参考源码锁文件中的 NestJS 为 `11.0.13`，TypeORM 为 `0.3.22`；独立练习工程使用 NestJS `11.2.7` 和 Fastify，具体版本由自己的 `package-lock.json` 记录，后续数据库等依赖在对应任务中配置，不自动更新已安装依赖。
 
 原 Express 项目继续作为 HTTP、JWT、校验、分页、上传及部署行为的学习参考。它使用的 Prisma、PostgreSQL 与当前主线分别学习；相关集成列在独立拓展练习中。
 
-每个阶段按照“说明概念 → 阅读实际调用路径 → 用户编写关键代码 → 运行真实请求 → 检查边界行为 → 更新进度”推进。一次讲解一个明确主题，讲解中关联当前模块和已有 Express 经验。AI 负责收集证据、解释、辅助排错和执行验收，用户需要能够解释关键实现。
+每个阶段按照“建立整体理解 → 讨论相关设计取舍 → 提出诊断问题 → 针对遗漏补充讲解 → 用户编写关键代码 → 运行真实请求 → 更新进度”推进。采用下文的五个核心思考框架、三个设计取舍与十个诊断问题组织学习。每次只深入一个主题、提出一个问题，关联当前模块和已有 Express 经验。AI 负责收集证据、解释、辅助排错和执行验收，用户需要能够解释关键实现。
 
 当前工作区保持不保存测试文件的约定；测试知识仍属于主线。临时验收脚本放入被 Git 忽略的 `.verification/`，完成后清理，不使用 mock 或伪造响应。单元测试知识结合纯业务逻辑学习，集成及端到端验收使用真实依赖。
 
 不自动执行 Git 提交、创建分支、安装全局工具或修改现有学习数据库。构建命令仅在阶段验收需要检查编译产物、迁移或部署流程时运行，并先说明原因。
 
+## 教学方法：整体理解、设计取舍与诊断练习
+
+依据用户提供文章中的三个提问组织教学。以下五个框架和三个取舍是结合 NestJS 官方文档、nest-admin 源码及用户学习目标所做的教学整理。学习进度由解释、独立编写和真实运行结果确认；不设定“48 小时掌握全部知识”的完成标准。
+
+### 五个核心思考框架
+
+| 思考框架 | 需要回答的问题 | 当前项目中的例子 |
+|---|---|---|
+| 按照职责组织功能 | 请求接收、业务规则、数据访问分别由谁负责？ | AuthController 接收参数，AuthService 处理账号登录，相关 Service 通过 Repository 访问数据；Module 组织组件及公开边界 |
+| 由 Nest 管理依赖 | 一个对象需要另一个对象时，谁负责创建和提供？ | Controller 通过构造函数获得 Service；追踪 providers、imports、exports 与实例作用域 |
+| 明确数据契约与信任边界 | 收到哪些字段，如何校验，允许返回哪些数据？ | 前端 API.LoginDto、后端 LoginDto、ValidationPipe、登录响应和用户数据归属 |
+| 沿着执行流程推理 | 请求先经过谁，哪里可以拒绝请求，异常会到达哪里？ | Guard、Pipe、Controller、Service、Interceptor 和 Filter；定时任务调用 Service 时需要另行落实输入和身份规则 |
+| 管理状态与资源生命周期 | 数据存在哪里，何时提交，失败如何处理，资源何时释放？ | MySQL 事务、Redis 失效、队列重试、上传文件一致性和应用终止清理 |
+
+### 三个设计取舍
+
+这些内容作为真实工程选择讨论，各方理由和适用条件需要结合证据说明，不宣称整个领域存在统一的争论分类。
+
+| 设计选择 | 两种做法各自有力的理由 | 本项目的学习安排 |
+|---|---|---|
+| Express 与 Fastify | Express 具有广泛的中间件生态和既有经验；Fastify 提供自身的插件机制及性能特征，具体收益需要真实负载验证 | 主线沿用 Fastify，上传和底层请求对象按照对应平台学习 |
+| 全局基础模块与显式模块导入 | 全局模块减少基础设施的重复导入；显式 imports、exports 让依赖和公开边界更容易追踪 | 追踪上游现有设计，能说明一个 Service 为何在当前模块可用，再讨论全局共享范围 |
+| Service 直接使用 TypeORM Repository 与另设数据访问抽象 | 直接注入减少中间层，便于使用 TypeORM 功能；独立抽象可以集中复杂查询或隔离多个数据实现，但增加维护内容 | 沿用已有 Repository 注入；仅在形成真实复用或隔离需求时增加抽象，并验证事务使用正确的 EntityManager |
+
+### 十个诊断问题
+
+问题按学习阶段逐个提出。初次学习时提供必要背景，回答后说明推理依据；不要求用户一次完成全部问题。
+
+1. 网页请求和定时任务都需要创建 Todo，哪些代码可以共同调用，哪些代码与 HTTP 接口有关？为什么？
+2. 删除 Controller 路由方法上的 @Post('login')，保留名为 login 的方法，Nest 能否继续通过原来的 POST 路径调用它？
+3. 一个 Service 添加了 @Injectable()，另一个模块仍无法注入它，需要检查哪些模块配置？
+4. 前端声明 password 是 string，用户直接发送数字密码，后端在什么条件下能够拒绝？
+5. 认证 Guard 拒绝请求后，Controller 中的登录或业务方法是否执行？异常或响应经过哪些处理？
+6. 用户 A 已登录并拥有修改权限，把请求里的 Todo id 改成用户 B 的记录编号，还需要检查什么？
+7. 一次业务需要执行两次数据库写入，第二次失败后如何确保第一项写入也撤销？事务内的 Repository 有什么要求？
+8. 修改数据库后 Redis 仍保存旧权限时，用户可能看到什么行为？如何验证缓存失效符合约定？
+9. 队列任务已经修改数据，进程在确认任务完成前终止，任务重新执行时如何避免重复业务结果？
+10. 文件已经写入磁盘但数据库记录保存失败，或者应用关闭时仍有 SSE 连接，应如何管理这些资源？
+
+### 每次练习的执行方式
+
+- 说明当前问题属于哪个思考框架，使用一个已有 Express 场景解释，并阅读当前任务必需的源码。
+- 用户先预测行为或说明代码应该放在哪里；AI 根据回答指出已经理解的部分、遗漏的条件和判断依据。
+- 对不清楚的概念补充一个具体例子，再提出一个只改变一个条件的相近问题。
+- 进入编码时由用户编写关键部分；AI 协助运行真实请求、检查错误和边界行为，验证完成后更新计划。
+- AI 准备可运行的基础工程和需求提示；业务 Controller、Service、DTO、Entity 及规则由用户按任务编写，练习文件保留空白或需求注释。每次验证前重新读取用户当前代码。
+- 在后续相关练习中再次检查已学内容；复制讲解文字或表示理解不单独作为掌握证据。
+
+当前教学任务：用户创建 `nest-admin-study/src/modules/todo/todo.service.ts`，声明带有 `@Injectable()` 的 TodoService 类；随后学习在 TodoModule 的 providers 中注册，并通过 Controller 构造函数注入。TodoModule 注册及原有 POST 接口已通过验收；任务保存、运行时校验及认证属于后续练习。
+
 ## 阶段进度
 
 | 阶段 | 学习主题 | 当前状态 |
 |---|---|---|
-| 0 | 环境、学习副本和首次启动 | 进行中，前端源码已取得 |
+| 0 | 环境、练习工程和首次启动 | 基础工程已验证，MySQL、Redis 等待配置 |
 | 1 | TypeScript、装饰器、元数据与项目入口 | 待学习 |
-| 2 | Module、Controller、Service 与依赖注入基础 | 待学习 |
+| 2 | Module、Controller、Service 与依赖注入基础 | 进行中，Controller 与 TodoModule 已验证，待学习 Service |
 | 3 | Provider、动态模块、作用域和生命周期 | 待学习 |
 | 4 | 完整请求生命周期、Middleware 与 RxJS | 待学习 |
 | 5 | DTO、参数转换、运行时校验与 Swagger | 待学习 |
@@ -59,7 +109,7 @@
 
 ## 贯穿业务：完善 Todo 模块
 
-使用项目已有 `src/modules/todo/` 作为贯穿练习，接口保留项目的字段命名 `value`、`status`，明确它们分别表示任务内容与完成状态。
+根据参考项目的 `src/modules/todo/` 需求，在独立练习工程中亲自编写 Todo 模块，接口保留项目的字段命名 `value`、`status`，明确它们分别表示任务内容与完成状态。
 
 最终行为要求：创建时绑定当前用户；用户只能读取和修改自己的任务；支持完成状态切换、分页、筛选和明确的排序规则；输入参数、响应、错误和权限具有一致契约。管理员访问范围需要显式定义并单独验收。
 
@@ -79,17 +129,19 @@
 | LocalGuard.canActivate() 直接返回 true | 分别跟踪实际登录校验与 Passport 策略调用，明确有效入口 | 7 |
 | 配置了测试工具，源码中未发现配套用例 | 学习 TestingModule、单元、集成及端到端验收方法 | 16 |
 
-## 阶段 0：环境、学习副本和首次启动
+## 阶段 0：环境、练习工程和首次启动
 
 源码入口：`README.md`、`package.json`、`pnpm-lock.yaml`、`.env`、`.env.development`、`src/config/`、`src/migrations/`、`deploy/sql/`。
 
 知识点：Node 与包管理器版本、锁文件、环境变量优先级、MySQL 和 Redis 的职责、数据库初始化与迁移、本机端口及前后端分工。
 
-实践：准备独立学习副本并记录来源版本；核查 pnpm；确定并配置本机 MySQL、Redis 的运行方式；创建独立学习数据库和 Redis 数据范围；检查上游命令在 Windows 中的兼容性。根据迁移内容选择明确的初始化流程，避免对同一数据库重复执行 SQL 初始化和初始迁移。Docker 相关内容安排在部署知识中，不作为当前环境准备的必选工具。
+实践：准备独立练习工程并记录依赖版本，基础 HTTP 练习使用本地 npm 命令；阅读参考项目和前端时分别核查 pnpm 要求。学习持久化前确定并配置本机 MySQL、Redis 的运行方式，创建独立学习数据库和 Redis 数据范围；检查上游命令在 Windows 中的兼容性。根据迁移内容选择明确的初始化流程，避免对同一数据库重复执行 SQL 初始化和初始迁移。Docker 相关内容安排在部署知识中，不作为当前环境准备的必选工具。
 
 验收：MySQL、Redis 的真实连接通过；项目启动；Swagger 可以访问；使用初始化账号完成登录；明确每个依赖的地址、端口、数据用途和停止方式。原 `todo_api` PostgreSQL 数据库保持原状。
 
-当前完成情况：已完成源码审阅、部分环境核查及配套前端克隆。前端 origin 地址、提交版本、工作目录状态及 Git 连通性检查通过；尚未安装前端依赖或启动前端，尚未准备正式后端学习副本、安装或配置本阶段的 MySQL、Redis，也未启动 nest-admin。
+当前完成情况：已完成源码审阅、部分环境核查、配套前端克隆及独立练习工程准备。前端 origin 地址、提交版本、工作目录状态及 Git 连通性检查通过。`nest-admin-study/` 的本地依赖安装、`npm run typecheck`、`npm start`、`npm run dev` 通过；用户已实现并注册 TodoController，实际 `POST /api/todos` 能够返回请求体中的任务内容。尚未安装前端依赖或启动前端，尚未配置 MySQL、Redis，也未启动参考项目的完整后端。
+
+独立练习工程的入口为 `nest-admin-study/src/main.ts`，根模块为 `nest-admin-study/src/app.module.ts`，任务说明见 `nest-admin-study/README.md`。`nest-admin-study/src/modules/todo/todo.controller.ts` 已实现请求体读取及返回，数据库保存等业务尚未实现。服务使用 `http://127.0.0.1:7001`，全局前缀为 `/api`。源码通过 ts-node 运行，以保留传统装饰器元数据；当前无需构建产物。
 
 前端准备与联调待办：
 
@@ -305,12 +357,34 @@
 
 2026-10-21，阶段 0：完成配套前端源码克隆，提交为 `64c03db76710e70b85aedf40a9ca87101946d70d`。`git status --short` 无输出，`git fsck --connectivity-only` 通过，origin 指向配套前端仓库。此次仅验收源码下载，依赖安装及运行状态待验证。下一项任务：阅读前端登录请求及请求封装，记录需要自行编写的首组后端接口。
 
+2026-10-22，阶段 0，开始登录接口契约学习：已核查前端 `src/views/login/index.vue`、`src/store/modules/user.ts`、`src/api/backend/api/auth.ts`、`account.ts`、`typings.d.ts`、`src/utils/request.ts` 和开发代理配置。当前讲解登录请求的方法、路径、请求体和响应结构；用户理解程度待练习确认，尚未执行真实登录验收。
+
+- 登录请求函数声明 `POST /api/auth/login`，请求体包含 `username`、`password`、`captchaId`、`verifyCode`。
+- 请求封装要求响应体的 `code` 为 `200`，默认提取响应体的 `data`；登录调用方读取其中的 `token`。
+- 登录相关接口函数还声明 `GET /api/auth/captcha/img`、`GET /api/account/profile`、`GET /api/account/menus`、`GET /api/account/permissions`；登录后还会初始化 SSE，相关连接在后续学习中单独核查。
+- 开发配置的 `baseURL` 与接口函数路径均包含 `/api`，代理去除最前面的 `/api`；浏览器最终地址与后端接收路径需要在联调中验证。
+- 下一项练习：根据 `authLogin` 源码说明请求方法、路径以及 `data: body` 的作用。完成理解确认后继续环境准备及 NestJS 基础学习。
+
+2026-10-22，教学方式调整：已完整阅读用户粘贴的文章，按“核心思考框架 → 设计取舍 → 诊断练习及反馈”更新教学安排，并核对 NestJS 官方 Controller、Provider、Module、Validation、请求生命周期及 Fastify 文档。已讲解前端字段类型来源、后端 Controller 和 LoginDto；尚未通过独立练习确认掌握，也未执行 NestJS 登录请求。根据用户的前端背景，后续按照“实际需求 → 具体问题 → 对应代码 → 真实运行结果 → 设计理由”讲解，每次引入一个主题，环境和功能阶段保持待验收状态。
+
+2026-10-22，Todo 创建需求阅读：已核查前端 `src/api/backend/api/businessTodo.ts` 的 `todoCreate`，以及后端 `src/modules/todo/todo.controller.ts`、`todo.dto.ts`。创建接口接收字段 `value`，Controller 使用 `@Body() dto: TodoDto` 读取请求体，再将 `dto` 传给 `TodoService.create`。当前仅进行源码阅读及请求体练习，尚未运行创建请求，未标记功能或用户掌握完成。下一项练习：根据传入的任务内容说明 `dto.value` 的结果。
+
+2026-10-22，独立编写练习准备：用户选择亲自实现业务模块，已创建 `nest-admin-study/` 基础工程及仅含提示的 TodoController 文件。NestJS `11.2.7`、TypeScript `5.9.3`、ts-node `10.9.2`，使用独立 npm 锁文件。类型检查通过，普通启动和开发监听启动成功；真实 POST、GET 请求返回 404，验证空白业务状态，验证后已停止服务并确认释放 7001 端口。练习不依赖数据库，未执行数据库操作，未实现或验证 Todo 创建成功。下一项任务：用户编写 TodoController 接收并返回请求体中的 `value`，在 AppModule 注册后，由 AI 验证两组不同内容的真实请求。
+
+2026-10-22，阶段 2，Controller 请求体读取验收：重新读取用户编写的 `todo.controller.ts` 和 `app.module.ts`，确认 POST 方法及根模块注册。`npm run typecheck` 通过，启动日志确认映射 `POST /api/todos`；两次真实 JSON 请求分别发送“学习 NestJS”和“完成今天的练习”，均返回 HTTP 201 及各自的 `value`，断言状态码和内容一致通过。验证后停止本次服务并确认释放 7001 端口。当前只验收数据接收，尚未保存任务、添加运行时校验或认证；概念迁移能力仍需后续练习确认。下一项任务：用户创建 TodoModule 并调整 AppModule 的注册方式。
+
+2026-10-22，阶段 2，TodoModule 注册验收：用户创建 TodoModule 并在 AppModule 的 imports 中引入，TodoController 在业务模块中注册。清理根模块未使用的 Controller 导入及 Controller 文件中过时的练习注释。类型检查通过，启动日志确认加载 AppModule、TodoModule 并注册 POST 路由；两次真实请求分别发送“学习 NestJS”和“通过 TodoModule 接收任务”，均返回 HTTP 201 及各自输入内容。验证后停止本次服务并确认释放 7001 端口。下一项任务：用户创建 TodoService 的类声明，继续学习 Provider 注册和构造函数注入。
+
 ## 阅读资料
 
 - [项目 README](https://github.com/buqiyuan/nest-admin/blob/main/README.md)
 - [项目依赖与命令](https://github.com/buqiyuan/nest-admin/blob/main/package.json)
 - [项目 AppModule](https://github.com/buqiyuan/nest-admin/blob/main/src/app.module.ts)
 - [Todo 模块](https://github.com/buqiyuan/nest-admin/tree/main/src/modules/todo)
+- [Controller 与路由](https://docs.nestjs.com/controllers)
+- [Provider 与依赖注入](https://docs.nestjs.com/providers)
+- [Module 与公开边界](https://docs.nestjs.com/modules)
+- [DTO 与运行时校验](https://docs.nestjs.com/techniques/validation)
 - [NestJS 11 HTTP adapter](https://docs.nestjs.com/v11/techniques/performance)
 - [请求生命周期](https://docs.nestjs.com/faq/request-lifecycle)
 - [NestJS 11 测试设施](https://docs.nestjs.com/v11/fundamentals/testing)

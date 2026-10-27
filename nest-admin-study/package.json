@@ -1,0 +1,27 @@
+{
+  "name": "nest-admin-study",
+  "version": "0.1.0",
+  "private": true,
+  "description": "根据 nest-admin 的实际需求学习编写 NestJS 后端",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "dev": "node --watch --require ts-node/register src/main.ts",
+    "start": "node --require ts-node/register src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.2.7",
+    "@nestjs/core": "11.2.7",
+    "@nestjs/platform-fastify": "11.2.7",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3"
+  }
+}
